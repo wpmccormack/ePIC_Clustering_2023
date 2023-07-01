@@ -2,7 +2,7 @@
 
 Code for HCAL Clustering in ePIC detector
 
-Numpy, uproot, and ROOT are needed
+Numpy, uproot, and ROOT are needed.  Some examples are included based on jupyter notebooks for visualization
 
 Throughout, I refer to non-ML based clustering as "generic"
 This approach is based on the clustering algorithm used by the CMS experiment (see section 3.4 of [1706.04965](https://arxiv.org/pdf/1706.04965.pdf)).  Like the default CMS algorithm, it clusters each calorimeter layer separately before combining information from different layers.  This is not necessarily the optimal approach (rather it is due to historical readout characteristics of the CMS HCAL)
@@ -23,7 +23,8 @@ The clustering algorithm here consists of several components.
    * This split could be improved by later implementing a "pruning" step, which would remove hits that are too far from a seed or have too low of a fraction (or by preventing those hits from being added in the first place)
 7. The individual "regular" clusters from different layers are then combined to create "multiDepth" clusters.  Each multiDepth cluster should contain either 0 or 1 cluster from each layer.  In the current implmentation, multiDepth clusters are started from layer 0, then layer 1 is checked for matching clusters, then layer 2, and so on.  If a shower doesn't leave energy in layer 0, that is ok, as a new multiDepth cluster is created for each "regular" cluster that isn't matched to an existing multiDepth cluster.  The "matching" is performed based on inter-cluster distance.  A technical detail here is that particles closer to the outer edges of the calorimeter are traveling at steeper angles through the calorimeter, meaning that they have greater layer-to-layer displacement.  For example, a particle that hits layer 0 at x = 200 will hit layer 1 at approximately x = 210, layer 2 at x = 220, and so on.  Thus the matching is performed based on an extrapolated position where the x-z slope is taken to be pos_x/20 and the y-z slope is taken to be pos_y/20.
 
-There is a also a clustering algorithm based on truth-level information included.
+
+There is a also a clustering algorithm based on truth-level information included.  For each distict truth-level particle ID in the event, information for that particle is extracted by using the cell energy and position information that the particle deposits energy in, as well as the fraction of the total energy that the particle in question deposited (current files store information for up to 4 particles per cell, unless I'm misunderstanding how the indexing is performed).  Having calculated the energy and position of each particle, I then create "truth" Clusters.  If two truth clusters are too close to each other or have too great a disparity in energy (e.g. a low energy particle next to a high energy one), then I combine their truth clusters, as they would be very difficult to distinguish in reconstruction.
 
 ## The "superEvent"
 
