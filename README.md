@@ -33,3 +33,8 @@ superEvent.py contains the "superEvent" class, which will full process a single 
 ## Components of clustering
 
 The eventContainer.py, truthCluster.py, superCluster.py, singleLayerCluster.py, and multiDepthCluster.py macros all contain classes for different types of cluster (or event) objects.  The helperV2.py file contains helper functions that can be used to run clustering
+
+
+## Important note for ML-based clustering schemes
+
+An ML-based clustering method might return the set of hits that should be used in a single cluster (or rather, sets of hits that correspond to different clusters).  One can create a cluster from the hits in an event using the exampleMLBasedCluster class that I've provided.  Here, you would just need to create an eventContainer class for the event in question, and then initialize an exampleMLBasedCluster object with the hits in question for the given cluster (as a collection of the hit array indices).  If the ML model somehow returns hit fractions that should be used in a cluster, then that can be included too.

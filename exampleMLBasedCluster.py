@@ -1,31 +1,15 @@
 import numpy as np
-from singleLayerCluster import singleLayerCluster
 
-
-class multiDepthCluster:
-    def __init__(self, event, SLC):
+class exampleMLBasedCluster:
+    def __init__(self, event, hitIndices=[], hitFracs=[]):
         self.event = event
-        self.layerSet = set([SLC.iz])
-        self.hitIndices = SLC.hitIndices
-        self.hitFracs = SLC.hitFracs
-        self.singleLayerClusters = []
-        for i in range(7):
-            if(i == SLC.iz):
-                self.singleLayerClusters.append(SLC)
-            else:
-                self.singleLayerClusters.append(None)
+        #self.layerSet = set([SLC.iz])
+        self.hitIndices = hitIndices
+        if(len(hitFracs)>0):
+            self.hitFracs = hitFracs
+        else:
+            self.hitFracs = [1]*len(hitIndices)
         self.truthMatch = -1
-    """
-    def addSingleLayerCluster(self, SLC):
-        self.hitIndices = self.hitIndices+SLC.hitIndices
-        self.hitFracs = self.hitFracs+SLC.hitFracs
-        self.singleLayerClusters[SLC.iz] = SLC
-
-    def distClustLayerExtrapolate(self, x1, y1, layer):
-        x2 = self.singleLayerClusters[layer].posx
-        y2 = self.singleLayerClusters[layer].posy
-        return np.sqrt(np.power(x1-x2,2)+np.power(y1-y2,2))
-    """
 
     def calculateCluster(self):
         hits = self.hitIndices
@@ -59,11 +43,6 @@ class multiDepthCluster:
         y2 = self.singleLayerClusters[layer].posy
         return np.sqrt(np.power(x1-x2,2)+np.power(y1-y2,2))
     
-    def distClustLayerExtrapolate(self, x1, y1, layer):
-        x2 = self.singleLayerClusters[layer].posx
-        y2 = self.singleLayerClusters[layer].posy
-        return np.sqrt(np.power(x1-x2,2)+np.power(y1-y2,2))
-
     def appendHit(self, hitInd):
         self.hitIndices.append(hitInd)
         
@@ -79,8 +58,3 @@ class multiDepthCluster:
     def appendListOfHitFracs(self, hitFracs):
         self.hitFracs = self.hitFracs+hitFracs
         
-    def addSingleLayerCluster(self, SLC):
-        self.hitIndices = self.hitIndices+SLC.hitIndices
-        self.hitFracs = self.hitFracs+SLC.hitFracs
-        self.singleLayerClusters[SLC.iz] = SLC
-        self.calculateCluster()

@@ -274,7 +274,7 @@ def findMatchedDiffs(matchedClusters, truthClusters, multiDepthClusters):
         if(not mc[0] is None and not mc[1] is None):
             diffs.append((truthClusters[mc[0]].energy - multiDepthClusters[mc[1]].energy)/truthClusters[mc[0]].energy)
 
-    diffs = []
+    return diffs
 
 
 
