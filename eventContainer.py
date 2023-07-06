@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 class eventContainer:
     def __init__(self, evnum, branches):
@@ -73,3 +74,38 @@ class eventContainer:
         x2 = self.tower_LFHCAL_posx[s]
         y2 = self.tower_LFHCAL_posy[s]
         return np.sqrt(np.power(x1-x2,2)+np.power(y1-y2,2))
+
+
+    # Convenience utilities for displaying the event and converting it
+
+    def __repr__(self):
+        # A multiline string that will be printed when we ask for print(eventContainer)
+
+        return f"""---- Event #{self.evnum} ----
+Number of hits: {self.tower_LFHCAL_N}
+Number of unique particles: {(np.unique(np.concatenate([self.tower_LFHCAL_trueID1, self.tower_LFHCAL_trueID2, self.tower_LFHCAL_trueID3, self.tower_LFHCAL_trueID4])) >= 0).sum()}
+Total energy: {self.tower_LFHCAL_E.sum()}"""
+    
+    def __len__(self):
+        # The length of the event is the number of hits
+        return self.tower_LFHCAL_N
+
+    def __getitem__(self, key):
+        # This allows us to get the value of a key by eventContainer[key]
+        return getattr(self, key)
+    
+    def __iter__(self):
+        # This allows us to iterate over the keys of the eventContainer
+        """
+        Returns the next tuple of (x, y, z, E, xi, yi, zi, ID1, ID2, ID3, ID4)
+        """
+        for i in range(len(self)):
+            yield (self.tower_LFHCAL_posx[i], self.tower_LFHCAL_posy[i], self.tower_LFHCAL_posz[i], self.tower_LFHCAL_E[i], self.tower_LFHCAL_ix[i], self.tower_LFHCAL_iy[i], self.tower_LFHCAL_iz[i], self.tower_LFHCAL_trueID1[i], self.tower_LFHCAL_trueID2[i], self.tower_LFHCAL_trueID3[i], self.tower_LFHCAL_trueID4[i])
+
+    def to_pandas(self):
+        # This returns a pandas dataframe of the eventContainer by building a dictionary of all the columns that are "hitlike" (i.e. have length N)
+        
+        hitlike_columns = ["E", "ix", "iy", "iz", "posx", "posy", "posz", "NContributions", "trueID1", "trueID2", "trueID3", "trueID4", "trueEfrac1", "trueEfrac2", "trueEfrac3", "trueEfrac4"]
+        hitlike_dict = {col: getattr(self, "tower_LFHCAL_" + col) for col in hitlike_columns}
+
+        return pd.DataFrame(hitlike_dict)
