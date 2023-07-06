@@ -1,6 +1,4 @@
-import uproot
 import numpy as np
-import helper
 
 class eventContainer:
     def __init__(self, evnum, branches):
