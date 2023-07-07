@@ -45,18 +45,18 @@ def makeTruthClusters(event):
         if(tmpE > 0):
             tmpX = sum(np.multiply(np.multiply(e1,f1), event.tower_LFHCAL_posx[hits1]))
             tmpX += sum(np.multiply(np.multiply(e2,f2), event.tower_LFHCAL_posx[hits2]))
-            tmpX += sum(np.multiply(np.multiply(e3,f4), event.tower_LFHCAL_posx[hits3]))
-            tmpX += sum(np.multiply(np.multiply(e3,f4), event.tower_LFHCAL_posx[hits4]))
+            tmpX += sum(np.multiply(np.multiply(e3,f3), event.tower_LFHCAL_posx[hits3]))
+            tmpX += sum(np.multiply(np.multiply(e4,f4), event.tower_LFHCAL_posx[hits4]))
             tmpX = tmpX/tmpE
             tmpY = sum(np.multiply(np.multiply(e1,f1), event.tower_LFHCAL_posy[hits1]))
             tmpY += sum(np.multiply(np.multiply(e2,f2), event.tower_LFHCAL_posy[hits2]))
-            tmpY += sum(np.multiply(np.multiply(e3,f4), event.tower_LFHCAL_posy[hits3]))
-            tmpY += sum(np.multiply(np.multiply(e3,f4), event.tower_LFHCAL_posy[hits4]))
+            tmpY += sum(np.multiply(np.multiply(e3,f3), event.tower_LFHCAL_posy[hits3]))
+            tmpY += sum(np.multiply(np.multiply(e4,f4), event.tower_LFHCAL_posy[hits4]))
             tmpY = tmpY/tmpE
             tmpZ = sum(np.multiply(np.multiply(e1,f1), event.tower_LFHCAL_posz[hits1]))
             tmpZ += sum(np.multiply(np.multiply(e2,f2), event.tower_LFHCAL_posz[hits2]))
-            tmpZ += sum(np.multiply(np.multiply(e3,f4), event.tower_LFHCAL_posz[hits3]))
-            tmpZ += sum(np.multiply(np.multiply(e3,f4), event.tower_LFHCAL_posz[hits4]))
+            tmpZ += sum(np.multiply(np.multiply(e3,f3), event.tower_LFHCAL_posz[hits3]))
+            tmpZ += sum(np.multiply(np.multiply(e4,f4), event.tower_LFHCAL_posz[hits4]))
             tmpZ = tmpZ/tmpE
             tmpTCs.append(truthCluster(i, tmpE, tmpX, tmpY, tmpZ, list(hits1)+list(hits2)+list(hits3)+list(hits4), list(f1)+list(f2)+list(f3)+list(f4)))
 
