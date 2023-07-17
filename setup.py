@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 setup(
-    name="epic_clustering",
+    name="epicclustering",
     version="0.0.1",
     author="Patrick McCormack, Daniel Murnane, Liv Helen Vage & Hannah Bossi",
     description=("Clustering of ePIC data"),
