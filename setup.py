@@ -20,12 +20,12 @@ dependencies = [
 setup(
     name="epic_clustering",
     version="0.0.1",
+    # packages=['epic_clustering'],
     author="Patrick McCormack, Daniel Murnane, Liv Helen Vage & Hannah Bossi",
     description=("Clustering of ePIC data"),
     license="MIT",
     keywords="ePIC clustering",
     url="https://github.com/wpmccormack/ePIC_Clustering_2023/tree/master",
-    # packages=find_packages(),
-    packages=['epic_clustering'],
+    packages=find_packages(),
     long_description=read('README.md'),
 )
