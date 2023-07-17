@@ -1,7 +1,8 @@
 import numpy as np
 import scipy as sp
 from sklearn.metrics.cluster._supervised import check_clusterings
-from sklearn.metrics import mutual_info_score
+from scipy import sparse as sps
+from math import log
 
 def weighted_v_score(labels_true, labels_pred, beta=1.0, labels_weight=None):
 
@@ -81,8 +82,6 @@ def weighted_contingency_matrix(labels_true, labels_pred, sparse=False, weights=
 
     return contingency.toarray() 
 
-from scipy import sparse as sps
-from math import log
 def mutual_info_score(labels_true, labels_pred, *, contingency=None):
     
     if isinstance(contingency, np.ndarray):
