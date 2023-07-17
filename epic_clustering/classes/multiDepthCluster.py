@@ -1,5 +1,5 @@
 import numpy as np
-from singleLayerCluster import singleLayerCluster
+from epic_clustering.classes import singleLayerCluster
 
 
 class multiDepthCluster:

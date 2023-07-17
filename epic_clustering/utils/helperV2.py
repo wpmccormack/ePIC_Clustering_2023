@@ -1,9 +1,10 @@
 import numpy as np
-from truthCluster import truthCluster
-from superCluster import superCluster
-from singleLayerCluster import singleLayerCluster
-from multiDepthCluster import multiDepthCluster
+# from truthCluster import truthCluster
+# from superCluster import superCluster
+# from singleLayerCluster import singleLayerCluster
+# from multiDepthCluster import multiDepthCluster
 
+from epic_clustering.classes import truthCluster, superCluster, singleLayerCluster, multiDepthCluster
 
 
 def makeTruthClusters(event):
