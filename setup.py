@@ -25,6 +25,7 @@ setup(
     license="MIT",
     keywords="ePIC clustering",
     url="https://github.com/wpmccormack/ePIC_Clustering_2023/tree/master",
-    packages=find_packages(),
+    # packages=find_packages(),
+    packages=['epic_clustering'],
     long_description=read('README.md'),
 )
