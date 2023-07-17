@@ -1,9 +1,8 @@
 **_dev**
-<<<<<<< HEAD
 *_dev*
 **_test**
-=======
-**_test**
-*_dev*
->>>>>>> DM_eventContainer_convenience_methods
-*_test*
+**wandb**
+**.ipynb_checkpoints**
+**.ckpt**
+**_logs**
+**.txt**

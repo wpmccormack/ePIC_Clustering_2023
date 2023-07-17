@@ -80,3 +80,37 @@ def weighted_contingency_matrix(labels_true, labels_pred, sparse=False, weights=
         return contingency
 
     return contingency.toarray() 
+
+from scipy import sparse as sps
+from math import log
+def mutual_info_score(labels_true, labels_pred, *, contingency=None):
+    
+    if isinstance(contingency, np.ndarray):
+        # For an array
+        nzx, nzy = np.nonzero(contingency)
+        nz_val = contingency[nzx, nzy]
+    else:
+        # For a sparse matrix
+        nzx, nzy, nz_val = sps.find(contingency)
+
+    contingency_sum = contingency.sum()
+    pi = np.ravel(contingency.sum(axis=1))
+    pj = np.ravel(contingency.sum(axis=0))
+
+    # Since MI <= min(H(X), H(Y)), any labelling with zero entropy, i.e. containing a
+    # single cluster, implies MI = 0
+    if pi.size == 1 or pj.size == 1:
+        return 0.0
+
+    log_contingency_nm = np.log(nz_val)
+    contingency_nm = nz_val / contingency_sum
+    # Don't need to calculate the full outer product, just for non-zeroes
+    outer = pi.take(nzx) * pj.take(nzy)
+    log_outer = -np.log(outer) + log(pi.sum()) + log(pj.sum())
+    mi = (
+        contingency_nm * (log_contingency_nm - log(contingency_sum))
+        + contingency_nm * log_outer
+    )
+    mi = np.where(np.abs(mi) < np.finfo(mi.dtype).eps, 0.0, mi)
+
+    return np.clip(mi.sum(), 0.0, None)
