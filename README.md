@@ -13,7 +13,7 @@ pip install -e .
 To install within a notebook (for example from Kaggle), run the following command:
 
 ```python
-!pip install git+https://github.com/wpmccormack/ePIC_Clustering_2023/tree/pip_installable
+!pip install git+https://github.com/wpmccormack/ePIC_Clustering_2023.git@pip_installable
 ```
 
 ## Usage
