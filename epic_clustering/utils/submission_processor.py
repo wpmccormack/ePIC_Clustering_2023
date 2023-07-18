@@ -2,7 +2,7 @@ import xxhash
 
 def encode_pid_column(df:pandas.DataFrame, colname:str): 
 
-        assert 'event' in df, "make sure there is a column named event, since we encode by event number
+        assert 'event' in df, "make sure there is a column named event, since we encode by event number" 
             
         # encode the labels to make sure it's unique across all events 
         str_ids = df['event'].astype('str') + "_" + df[colname].astype('str')
