@@ -15,7 +15,8 @@ dependencies = [
     "torch",
     "torch-geometric",
     "lightning", 
-    "xxhash"
+    "xxhash",
+    "uproot"
 ]
 
 setup(
