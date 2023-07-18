@@ -1,6 +1,7 @@
 import xxhash 
+import pandas as pd
 
-def encode_pid_column(df:pandas.DataFrame, colname:str): 
+def encode_pid_column(df:pd.DataFrame, colname:str): 
 
         assert 'event' in df, "make sure there is a column named event, since we encode by event number" 
             
