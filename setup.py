@@ -14,7 +14,9 @@ dependencies = [
     "scipy",
     "torch",
     "torch-geometric",
-    "lightning"
+    "lightning", 
+    "xxhash",
+    "uproot"
 ]
 
 setup(
