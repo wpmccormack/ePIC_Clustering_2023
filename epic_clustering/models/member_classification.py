@@ -59,7 +59,7 @@ class MemberClassification(pl.LightningModule):
 
         # Apply a loss function
         loss = F.binary_cross_entropy(
-            classification_score, batch.y.float()
+            classification_score.squeeze(), batch.y.squeeze()
         )
 
         self.log("train_loss", loss, batch_size=1, sync_dist=True)
@@ -74,7 +74,7 @@ class MemberClassification(pl.LightningModule):
 
         # Apply a loss function
         loss = F.binary_cross_entropy(
-            classification_score, batch.y.float()
+            classification_score.squeeze(), batch.y.squeeze()
         )
 
         metrics = self.log_metrics(loss, batch, classification_score)
@@ -86,12 +86,12 @@ class MemberClassification(pl.LightningModule):
     def log_metrics(self, loss, batch, classification_score):
 
         # Get trues, positives and true positives
-        trues = batch.y.cpu().detach().numpy()
-        preds = (classification_score > 0.5).cpu().detach().numpy()
-        true_positives = np.sum(trues*preds)
+        trues = batch.y.bool().cpu().detach().numpy()
+        preds = (classification_score > 0.5).bool().cpu().detach().numpy()
+        true_positives = np.sum(trues & preds)
 
-        efficiency = true_positives/np.sum(trues)
-        purity = true_positives/np.sum(preds)
+        efficiency = true_positives/np.sum(trues) if np.sum(trues) > 0 else 0
+        purity = true_positives/np.sum(preds) if np.sum(preds) > 0 else 0
 
         self.log_dict(
             {"val_loss": loss,
@@ -235,26 +235,28 @@ class EventDataset(Dataset):
         csv_files = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith('.csv')][:num_events//1000 + 1]
         events = pd.concat([pd.read_csv(f) for f in csv_files])
         if num_events is not None:
-            events = events[events.entry < num_events]
+            events = events[events["event"].isin(events["event"].unique()[:num_events])]
 
         self.scale_features(events)
 
-        return list(events.groupby('entry'))
+        return list(events.groupby('event'))
 
     def convert_to_pyg(self, event):
 
         # Convert to PyG data object
         event = event.reset_index(drop=True)
-        event = event.drop(columns=['entry'])
+        event = event.drop(columns=['event'])
 
-        data.edge_index = self.create_training_pairs(event)
-        y = event.clusterID[data.edge_index[0]] == event.clusterID[data.edge_index[1]]
+        edge_index = self.create_training_pairs(event).long()
+        clusterID = torch.from_numpy(event.clusterID.to_numpy().astype(np.int64))
+        y = (clusterID[edge_index[0]] == clusterID[edge_index[1]])
         node_features = torch.from_numpy(event[['posx', 'posy', 'posz', 'E']].to_numpy())
-        edge_features = torch.cat([node_features[data.edge_index[0]], node_features[data.edge_index[1]]], dim=1)
+        edge_features = torch.cat([node_features[edge_index[0]], node_features[edge_index[1]]], dim=1)
 
         data = Data(
-                        x = edge_features,
-                        y = y
+                        x = edge_features.float(),
+                        y = y.float(),
+                        edge_index = edge_index,
                     )
 
         data.num_nodes = data.x.shape[0]

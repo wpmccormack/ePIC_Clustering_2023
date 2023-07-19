@@ -1,5 +1,5 @@
 input_dir: /global/cfs/cdirs/m3443/data/PowerWeek/train/train/
-project: PowerWeek_MetricLearning
+project: PowerWeek_MemberClassification
 
 data_split: [200, 10, 10]
 input_features: 8
