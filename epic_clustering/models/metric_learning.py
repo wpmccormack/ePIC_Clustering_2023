@@ -31,9 +31,9 @@ from sklearn.cluster import DBSCAN
 
 # Local imports
 sys.path.append('../')
-from utils.ml_utils import make_mlp
-from utils.graph_utils import build_edges, graph_intersection
-from utils.weighted_v_score import weighted_v_score
+from epic_clustering.utils import make_mlp
+from epic_clustering.utils import build_edges, graph_intersection
+from epic_clustering.scoring import weighted_v_score
 
 sqrt_eps = 1e-12
 
@@ -93,7 +93,8 @@ class MetricLearning(pl.LightningModule):
         3. Construct the truth and weighting labels for the model training
         """
 
-        self.load_data(self.hparams["input_dir"])
+        if not hasattr(self, "trainset"):
+            self.load_data(self.hparams["input_dir"])
                 
     def load_data(self, input_dir):
         """
@@ -197,8 +198,12 @@ class MetricLearning(pl.LightningModule):
         embedding = self(batch.x)
         training_edges = self.get_training_edges(batch, embedding).long()
         truth = batch.pid[training_edges[0]] == batch.pid[training_edges[1]]
+        if "energy_weighting" in self.hparams and self.hparams["energy_weighting"]:
+            weighting = (batch.x[training_edges[0], 3] + batch.x[training_edges[1], 3])/2
+        else:
+            weighting = None
 
-        loss = self.loss_function(embedding, pred_edges=training_edges, truth=truth)
+        loss = self.loss_function(embedding, pred_edges=training_edges, truth=truth, weighting=weighting)
 
         self.log("train_loss", loss, batch_size=1, sync_dist=True)
 
@@ -212,9 +217,6 @@ class MetricLearning(pl.LightningModule):
         # Append Hard Negative Mining (hnm) with KNN graph
         training_edges = self.append_hnm_pairs(training_edges, embedding)
 
-        # Append random edges pairs (rp) for stability
-        # training_edges = self.append_random_pairs(training_edges, embedding)
-
         # Append true signal edges
         training_edges = self.append_true_pairs(batch, training_edges)
 
@@ -223,13 +225,13 @@ class MetricLearning(pl.LightningModule):
 
         return training_edges
 
-    def loss_function(self, embedding, pred_edges, truth):
+    def loss_function(self, embedding, pred_edges, truth, weighting=None):
 
         d = self.get_distances(embedding, pred_edges, p=1)
 
-        return self.hinge_loss(truth, d)
+        return self.hinge_loss(truth, d, weighting)
 
-    def hinge_loss(self, truth, d):
+    def hinge_loss(self, truth, d, weighting=None):
         """
         Calculates the hinge loss
 
@@ -249,8 +251,11 @@ class MetricLearning(pl.LightningModule):
             d[negative_mask],
             torch.ones_like(d[negative_mask])*-1,
             margin=self.hparams["margin"],
-            reduction="mean"
+            reduction="none"
         )
+
+        if weighting is not None:
+            negative_loss = negative_loss*weighting[negative_mask]
 
         positive_mask = truth.bool()
 
@@ -259,10 +264,19 @@ class MetricLearning(pl.LightningModule):
             d[positive_mask],
             torch.ones_like(d[positive_mask]),
             margin=self.hparams["margin"],
-            reduction="mean",
+            reduction="none"
         )
 
-        return negative_loss + self.hparams["positive_weight"]*positive_loss
+        if weighting is not None:
+            positive_loss = positive_loss*weighting[positive_mask]
+
+        total_loss = 0
+        if negative_mask.sum() > 0:
+            total_loss += negative_loss.mean()
+        if positive_mask.sum() > 0:
+            total_loss += self.hparams["positive_weight"]*positive_loss.mean()
+
+        return total_loss
 
     def shared_evaluation(self, batch, knn_radius, knn_num):
 
@@ -278,7 +292,11 @@ class MetricLearning(pl.LightningModule):
         true_edges = torch.cat([batch.edge_index, batch.edge_index.flip(0)], dim=-1)
         truth = batch.pid[pred_edges[0]] == batch.pid[pred_edges[1]]
         d = self.get_distances(embedding, pred_edges)
-        loss = self.loss_function(embedding, pred_edges, truth)
+        if "energy_weighting" in self.hparams and self.hparams["energy_weighting"]:
+            weighting = (batch.x[pred_edges[0], 3] + batch.x[pred_edges[1], 3])/2
+        else:
+            weighting = None
+        loss = self.loss_function(embedding, pred_edges, truth, weighting)
 
         metrics = self.log_metrics(loss, batch, pred_edges, true_edges, truth)
         
@@ -302,8 +320,6 @@ class MetricLearning(pl.LightningModule):
         all_positive = pred_edges.shape[1]
         all_true = true_edges.shape[1]
         all_true_positive = true_pred_edges.shape[1]
-
-        # print(f"all_positive: {all_positive}, all_true: {all_true}, all_true_positive: {all_true_positive}")
 
         # Calculate metrics
         eff = all_true_positive / all_true 
@@ -339,12 +355,14 @@ class MetricLearning(pl.LightningModule):
         # Get the best clustering score
         best_score = 0
         best_eps = 0
-        for eps in np.linspace(0.1, 0.9, 20):
-            pred = DBSCAN(eps=eps, min_samples=1, metric="euclidean", n_jobs=-1).fit_predict(embedding.cpu().detach().numpy())
-            score = self.get_clustering_score(pid.squeeze(), pred.squeeze(), energy_weighting)
+        for eps in np.linspace(0.001, 0.2, 10):
+            pred = DBSCAN(eps=eps, min_samples=1, metric="euclidean", n_jobs=-1).fit_predict(embedding.cpu().detach().numpy(), sample_weight=energy_weighting.cpu().numpy())
+            score = self.get_clustering_score(pid.squeeze(), pred.squeeze(), energy_weighting*30)
             if score > best_score:
                 best_score = score
                 best_eps = eps
+
+        print(f"Best clustering score: {best_score} at eps: {best_eps}")
 
         self.log_dict(
             {"best_clustering_score": best_score,
@@ -411,20 +429,20 @@ class EventDataset(Dataset):
         csv_files = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith('.csv')][:num_events//1000 + 1]
         events = pd.concat([pd.read_csv(f) for f in csv_files])
         if num_events is not None:
-            events = events[events.entry < num_events]
+            events = events[events["event"].isin(events["event"].unique()[:num_events])]
 
         self.scale_features(events)
 
-        return list(events.groupby('entry'))
+        return list(events.groupby('event'))
 
     def convert_to_pyg(self, event):
 
         # Convert to PyG data object
         event = event.reset_index(drop=True)
-        event = event.drop(columns=['entry'])
+        event = event.drop(columns=['event'])
 
         data = Data(
-                        x = torch.from_numpy(event[['posx', 'posy', 'posz', 'E']].to_numpy()).float(),
+                        x = torch.from_numpy(event[['posx', 'posy', 'posz', 'E', 'T']].to_numpy()).float(),
                         pid = torch.from_numpy(event.clusterID.to_numpy().astype(np.int64)).long(),
                     )
 
@@ -459,7 +477,7 @@ class EventDataset(Dataset):
 
         particle_groups = event.groupby('clusterID')
         edge_list = [
-            np.array(list(itertools.combinations(group.subentry.values, 2))).T
+            np.array(list(itertools.combinations(group.hit_number.values, 2))).T
             for _, group in particle_groups if len(group) > 1
         ]
 
