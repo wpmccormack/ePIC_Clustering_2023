@@ -39,6 +39,9 @@ sqrt_eps = 1e-12
 
 
 class MemberClassification(pl.LightningModule):
+    
+    # ---- The following 100 lines are where the ML actually happens ---- #
+
     def __init__(self, hparams):
         super().__init__()
         """
@@ -58,6 +61,90 @@ class MemberClassification(pl.LightningModule):
     def forward(self, x):
 
         return torch.sigmoid(self.network(x))
+
+
+    def training_step(self, batch, batch_idx):
+
+        """
+        Args:
+            batch (``list``, required): A list of ``torch.tensor`` objects
+            batch (``int``, required): The index of the batch
+
+        Returns:
+            ``torch.tensor`` The loss function as a tensor
+        """
+
+        # Apply the model to the input data
+        classification_score = self(batch.x)
+
+        # Apply a loss function
+        loss = F.binary_cross_entropy(
+            classification_score, batch.y.float()
+        )
+
+        self.log("train_loss", loss, batch_size=1, sync_dist=True)
+
+        return loss
+
+
+    def shared_evaluation(self, batch):
+
+        # Apply the model to the input data
+        classification_score = self(batch.x)
+
+        # Apply a loss function
+        loss = F.binary_cross_entropy(
+            classification_score, batch.y.float()
+        )
+
+        metrics = self.log_metrics(loss, batch, classification_score)
+        
+        return {
+            "loss": loss,
+        }
+
+    def log_metrics(self, loss, batch, classification_score):
+
+        # Get trues, positives and true positives
+        trues = batch.y.cpu().detach().numpy()
+        preds = (classification_score > 0.5).cpu().detach().numpy()
+        true_positives = np.sum(trues*preds)
+
+        efficiency = true_positives/np.sum(trues)
+        purity = true_positives/np.sum(preds)
+
+        self.log_dict(
+            {"val_loss": loss,
+                "efficiency": efficiency,
+                "purity": purity,
+                },
+            batch_size=1, sync_dist=True
+        )
+
+        return {
+            "loss": loss,
+            "efficiency": efficiency,
+            "purity": purity,
+        }
+
+    def validation_step(self, batch, batch_idx):
+        """
+        Step to evaluate the model's performance
+        """
+        knn_val = 500 if "knn_val" not in self.hparams else self.hparams["knn_val"]
+        outputs = self.shared_evaluation(
+            batch
+        )
+
+        return outputs["loss"]
+
+    def test_step(self, batch, batch_idx):
+        """
+        Step to evaluate the model's performance
+        """
+        return self.shared_evaluation(batch)
+    
+    # ----- The below functions simply organize the input data and the optimizer ----- #
 
     def train_dataloader(self):
         if self.trainset is None:
@@ -137,90 +224,6 @@ class MemberClassification(pl.LightningModule):
             }
         ]
         return optimizer, scheduler
-
-    def training_step(self, batch, batch_idx):
-
-        """
-        Args:
-            batch (``list``, required): A list of ``torch.tensor`` objects
-            batch (``int``, required): The index of the batch
-
-        Returns:
-            ``torch.tensor`` The loss function as a tensor
-        """
-
-        # Apply the model to the input data
-        classification_score = self(batch.x)
-
-        # Apply a loss function
-        loss = F.binary_cross_entropy(
-            classification_score, batch.y.float()
-        )
-
-        self.log("train_loss", loss, batch_size=1, sync_dist=True)
-
-        return loss
-
-
-    def shared_evaluation(self, batch):
-
-        # Apply the model to the input data
-        classification_score = self(batch.x)
-
-        # Apply a loss function
-        loss = F.binary_cross_entropy(
-            classification_score, batch.y.float()
-        )
-
-        metrics = self.log_metrics(loss, batch, classification_score)
-        
-        return {
-            "loss": loss,
-        }
-
-    def log_metrics(self, loss, batch, classification_score):
-
-        # Get trues, positives and true positives
-        trues = batch.y.cpu().detach().numpy()
-        preds = (classification_score > 0.5).cpu().detach().numpy()
-        true_positives = np.sum(trues*preds)
-
-        efficiency = true_positives/np.sum(trues)
-        purity = true_positives/np.sum(preds)
-
-        self.log_dict(
-            {"val_loss": loss,
-                "efficiency": efficiency,
-                "purity": purity,
-                },
-            batch_size=1, sync_dist=True
-        )
-
-        return {
-            "loss": loss,
-            "efficiency": efficiency,
-            "purity": purity,
-        }
-
-
-
-    def validation_step(self, batch, batch_idx):
-        """
-        Step to evaluate the model's performance
-        """
-        knn_val = 500 if "knn_val" not in self.hparams else self.hparams["knn_val"]
-        outputs = self.shared_evaluation(
-            batch
-        )
-
-        return outputs["loss"]
-
-    def test_step(self, batch, batch_idx):
-        """
-        Step to evaluate the model's performance
-        """
-        return self.shared_evaluation(batch)
-    
 
 class EventDataset(Dataset):
     """
