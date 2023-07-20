@@ -1,16 +1,16 @@
 input_dir: /global/cfs/cdirs/m3443/data/PowerWeek/train/train/
 project: PowerWeek_MemberClassification
 
-data_split: [200, 10, 10]
+data_split: [2000, 100, 10]
 input_features: 8
-emb_hidden: 512
+emb_hidden: 1024
 nb_layer: 4
 activation: ReLU
 
 positive_weight: 1.0
-warmup: 10
-lr: 0.1
-patience: 10
+warmup: 5
+lr: 0.01
+patience: 3
 max_epochs: 10
 factor: 0.8
 energy_weighting: True

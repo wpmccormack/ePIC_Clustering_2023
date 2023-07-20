@@ -11,6 +11,7 @@ import torch
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+from sklearn.metrics import roc_auc_score
 
 # Local imports
 from epic_clustering.utils import make_mlp
@@ -62,7 +63,7 @@ class MemberClassification(pl.LightningModule):
             classification_score.squeeze(), batch.y.squeeze()
         )
 
-        self.log("train_loss", loss, batch_size=1, sync_dist=True)
+        self.log("train_loss", loss, batch_size=1, sync_dist=True, on_epoch=True, on_step=True)
 
         return loss
 
@@ -85,22 +86,37 @@ class MemberClassification(pl.LightningModule):
 
     def log_metrics(self, loss, batch, classification_score):
 
+        classification_score = classification_score.cpu().detach().numpy()
+        
         # Get trues, positives and true positives
         trues = batch.y.bool().cpu().detach().numpy()
-        preds = (classification_score > 0.5).bool().cpu().detach().numpy()
-        true_positives = np.sum(trues & preds)
+        preds = classification_score > 0.5
+        true_positives = np.sum(trues.squeeze() & preds.squeeze())
 
         efficiency = true_positives/np.sum(trues) if np.sum(trues) > 0 else 0
         purity = true_positives/np.sum(preds) if np.sum(preds) > 0 else 0
 
+        current_lr = self.optimizers().param_groups[0]["lr"]
+        
         self.log_dict(
             {"val_loss": loss,
                 "efficiency": efficiency,
                 "purity": purity,
+                 "lr": current_lr
                 },
             batch_size=1, sync_dist=True
         )
 
+        try:
+            auc = roc_auc_score(trues, classification_score)
+            self.log_dict(
+            {
+                "auc": auc
+            },
+            batch_size=1, sync_dist=True)
+        except:
+            pass
+        
         return {
             "loss": loss,
             "efficiency": efficiency,
