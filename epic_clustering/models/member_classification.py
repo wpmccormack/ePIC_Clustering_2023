@@ -183,7 +183,8 @@ class MemberClassification(pl.LightningModule):
         """
 
         total_dataset = EventDataset(input_dir, sum(self.hparams["data_split"]), hparams = self.hparams)
-        self.trainset, self.valset, self.testset = random_split(total_dataset, self.hparams["data_split"])
+        num_train, num_val, num_test = self.hparams["data_split"]
+        self.trainset, self.valset, self.testset = total_dataset[:num_train], total_dataset[num_train:num_train+num_val], total_dataset[num_train+num_val:]
 
         print(f"Loaded {len(self.trainset)} training events, {len(self.valset)} validation events and {len(self.testset)} testing events")
 
@@ -251,7 +252,7 @@ class EventDataset(Dataset):
         csv_files = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith('.csv')][:num_events//1000 + 1]
         events = pd.concat([pd.read_csv(f) for f in csv_files])
         if num_events is not None:
-            events = events[events["event"].isin(events["event"].unique()[:num_events])]
+            events = events[events["event"].isin(sorted(events["event"].unique())[:num_events])]
 
         self.scale_features(events)
 
@@ -261,6 +262,7 @@ class EventDataset(Dataset):
 
         # Convert to PyG data object
         event = event.reset_index(drop=True)
+        event_id = event.event[0]
         event = event.drop(columns=['event'])
 
         edge_index = self.create_training_pairs(event).long()
@@ -273,6 +275,7 @@ class EventDataset(Dataset):
                         x = edge_features.float(),
                         y = y.float(),
                         edge_index = edge_index,
+                        event_id = event_id
                     )
 
         data.num_nodes = data.x.shape[0]
