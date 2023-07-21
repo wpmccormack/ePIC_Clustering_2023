@@ -8,3 +8,6 @@
 **.txt**
 **.egg-info**
 **__pycache__**
+**.csv**
+**.zip**
+**.parquet**

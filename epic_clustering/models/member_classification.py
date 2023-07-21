@@ -58,7 +58,7 @@ class MemberClassification(pl.LightningModule):
         # Apply the model to the input data
         classification_score = self(batch.x)
 
-        # Apply a loss function
+        # Apply a loss function with a positive weight
         loss = F.binary_cross_entropy(
             classification_score.squeeze(), batch.y.squeeze()
         )
@@ -147,7 +147,7 @@ class MemberClassification(pl.LightningModule):
             return None
         num_workers = 1 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][0]
         return DataLoader(
-            self.trainset, batch_size=1, num_workers=num_workers
+            self.trainset, batch_size=self.hparams["batch_size"], num_workers=num_workers
         )
 
     def val_dataloader(self):
@@ -155,7 +155,7 @@ class MemberClassification(pl.LightningModule):
             return None
         num_workers = 1 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][1]
         return DataLoader(
-            self.valset, batch_size=1, num_workers=num_workers, pin_memory=False
+            self.valset, batch_size=self.hparams["batch_size"], num_workers=num_workers, pin_memory=False
         )
 
     def test_dataloader(self):
@@ -163,7 +163,7 @@ class MemberClassification(pl.LightningModule):
             return None
         num_workers = 1 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][2]
         return DataLoader(
-            self.testset, batch_size=1, num_workers=num_workers
+            self.testset, batch_size=self.hparams["batch_size"], num_workers=num_workers
         )
     
     def setup(self, stage="fit"):
@@ -249,10 +249,12 @@ class EventDataset(Dataset):
     def load_datafiles_in_dir(self, input_dir, num_events):
 
         # Each file is 1000 events, so need to load num_events//1000 + 1 files
-        csv_files = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith('.csv')][:num_events//1000 + 1]
-        events = pd.concat([pd.read_csv(f) for f in csv_files])
+        csv_files = sorted([os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith('.csv')])[:num_events//1000 + 1]
+        events = pd.concat([pd.read_csv(f) for f in sorted(csv_files)])
         if num_events is not None:
             events = events[events["event"].isin(sorted(events["event"].unique())[:num_events])]
+        if "clusterID" in events:
+            events['clusterID'] = events['clusterID'].astype(np.uint64) # Needed for some reason?
 
         self.scale_features(events)
 
@@ -264,16 +266,20 @@ class EventDataset(Dataset):
         event = event.reset_index(drop=True)
         event_id = event.event[0]
         event = event.drop(columns=['event'])
+        event['logE'] = np.log(event['E'])
 
         edge_index = self.create_training_pairs(event).long()
-        clusterID = torch.from_numpy(event.clusterID.to_numpy().astype(np.int64))
-        y = (clusterID[edge_index[0]] == clusterID[edge_index[1]])
-        node_features = torch.from_numpy(event[['posx', 'posy', 'posz', 'E']].to_numpy())
+        if "clusterID" in event:
+            clusterID = torch.from_numpy(event.clusterID.to_numpy().astype(np.int64))
+            y = (clusterID[edge_index[0]] == clusterID[edge_index[1]]).float()
+        else: 
+            y = None
+        node_features = torch.from_numpy(event[['posx', 'posy', 'posz', 'E', 'T', 'logE']].to_numpy())
         edge_features = torch.cat([node_features[edge_index[0]], node_features[edge_index[1]]], dim=1)
 
         data = Data(
                         x = edge_features.float(),
-                        y = y.float(),
+                        y = y,
                         edge_index = edge_index,
                         event_id = event_id
                     )
@@ -304,11 +310,21 @@ class EventDataset(Dataset):
         Create the true edge list for the event. This is 
         """
 
-        # Sorted event.E - get first 40
-        high_energy_hits = event.sort_values(by="E", ascending=False).iloc[:40]
+        # Sorted event.E - get first X%
+        if "num_seeds_ratio" in self.hparams:
+            num_seeds = int(len(event) * self.hparams["num_seeds_ratio"])  
+        elif "num_seeds" in self.hparams:
+            num_seeds = self.hparams["num_seeds"]
+        else: 
+            num_seeds = 40
+        high_energy_hits = event.sort_values(by="E", ascending=False).iloc[:num_seeds]
 
         # use torch meshgrid to get all pairs between high_energy_hits.hit_number and event.hit_number
-        pairs = torch.meshgrid(torch.from_numpy(high_energy_hits.hit_number.values), torch.from_numpy(event.hit_number.values))
+        # pairs = torch.meshgrid(torch.from_numpy(high_energy_hits.hit_number.values), torch.from_numpy(event.hit_number.values))
+        
+        # use torch meshgrid to get all pairs between high energy hits
+        pairs = torch.meshgrid(torch.from_numpy(high_energy_hits.hit_number.values), torch.from_numpy(high_energy_hits.hit_number.values))
+
         # convert into a 2 x N array
         pairs = torch.stack(pairs).reshape(2, -1)
 
