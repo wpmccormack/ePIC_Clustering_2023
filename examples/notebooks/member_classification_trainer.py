@@ -20,6 +20,7 @@ def main():
     logger = WandbLogger(project=member_classification_config["project"])
     checkpoint_callback = ModelCheckpoint(
         monitor="auc",
+        mode="max",
         dirpath=member_classification_config["checkpoint_dir"],
         filename="member_classification-{epoch:02d}-{auc:.2f}",
         save_last=True, save_top_k=1,
